@@ -385,6 +385,12 @@ struct sde_crtc {
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
 
+#ifdef CONFIG_DRM_SDE_EXPO
+enum sde_crtc_dirty_flags {
+	SDE_CRTC_DIRTY_DIM_LAYER_EXPO,
+};
+#endif
+
 /**
  * struct sde_crtc_state - sde container for atomic crtc state
  * @base: Base drm crtc state structure
@@ -443,6 +449,9 @@ struct sde_crtc_state {
 
 	struct sde_core_perf_params new_perf;
 	int secure_session;
+#ifdef CONFIG_DRM_SDE_EXPO
+	struct sde_hw_dim_layer *exposure_dim_layer;
+#endif
 };
 
 enum sde_crtc_irq_state {

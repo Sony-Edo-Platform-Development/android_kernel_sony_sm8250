@@ -25,6 +25,9 @@
 #include "dsi_panel_driver.h"
 #include "sec_interface.h"
 #endif /* CONFIG_DRM_SDE_SPECIFIC_PANEL */
+#ifdef CONFIG_DRM_SDE_EXPO
+#include "sde_expo_dim_layer.h"
+#endif
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -249,6 +252,9 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 #ifdef CONFIG_DRM_SDE_SPECIFIC_PANEL
 	dsi_panel_driver_panel_update_area(panel, (u32)bl_temp);
 #endif  /* CONFIG_DRM_SDE_SPECIFIC_PANEL */
+#ifdef CONFIG_DRM_SDE_EXPO
+	bl_temp = expo_map_dim_level((u32)bl_temp, dsi_display);
+#endif
 
 	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
 	if (rc)
