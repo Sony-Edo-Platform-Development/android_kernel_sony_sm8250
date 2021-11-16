@@ -108,6 +108,7 @@ ifeq ($(CONFIG_DRM_SDE_SPECIFIC_PANEL),y)
 msm_drm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi_panel_driver.o \
 	dsi/incell.o
 endif
+msm_drm-$(CONFIG_EXPOSURE_ADJUSTMENT) += dsi/exposure_adjustment.o
 
 msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_atomic.o \
