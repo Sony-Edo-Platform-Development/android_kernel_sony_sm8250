@@ -139,16 +139,10 @@ void walt_find_best_target(struct sched_domain *sd,
 	int cluster;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
-#if IS_ENABLED(CONFIG_MIHW)
-	struct root_domain *rd;
-#endif
 	cpumask_t visit_cpus;
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
-#if IS_ENABLED(CONFIG_MIHW)
-	rd = cpu_rq(start_cpu)->rd;
-#endif
 
 	/*
 	 * For higher capacity worth I/O tasks, stop the search
@@ -221,15 +215,6 @@ void walt_find_best_target(struct sched_domain *sd,
 			if (per_task_boost(cpu_rq(i)->curr) ==
 					TASK_BOOST_STRICT_MAX)
 				continue;
-
-#if IS_ENABLED(CONFIG_MIHW)
-			if (sched_boost_top_app() && rd->mid_cap_orig_cpu != -1
-				&& ((i < rd->mid_cap_orig_cpu
-				&& MAX_USER_RT_PRIO <= p->prio
-				&& p->prio < DEFAULT_PRIO) ||
-				(i >= rd->mid_cap_orig_cpu && p->prio > DEFAULT_PRIO)))
-				break;
-#endif
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -748,15 +733,6 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto done;
 	}
-
-#if IS_ENABLED(CONFIG_MIHW)
-	if (sched_boost_top_app() && is_top_app(p) && cpu_online(super_big_cpu) &&
-		!cpu_isolated(super_big_cpu) && cpumask_test_cpu(super_big_cpu, &p->cpus_allowed)) {
-		best_energy_cpu = super_big_cpu;
-		fbt_env.fastpath = SCHED_BIG_TOP;
-		goto done;
-	}
-#endif
 
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
