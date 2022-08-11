@@ -283,6 +283,124 @@ static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
 	irq_work_queue(&sg_policy->irq_work);
 }
 
+#ifdef CONFIG_CPUFREQ_GOV_SCHEDUTIL_TARGET_LOAD
+static unsigned int freq_to_targetload(
+	struct sugov_tunables *tunables, unsigned int freq)
+{
+	int i;
+	unsigned int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&tunables->target_loads_lock, flags);
+
+	for (i = 0; i < tunables->ntarget_loads - 1 &&
+		     freq >= tunables->target_loads[i+1]; i += 2)
+		;
+
+	ret = tunables->target_loads[i];
+	spin_unlock_irqrestore(&tunables->target_loads_lock, flags);
+	return ret;
+}
+
+
+static unsigned int choose_freq(struct sugov_policy *sg_policy,
+		unsigned int loadadjfreq)
+{
+	struct cpufreq_policy *policy = sg_policy->policy;
+	unsigned int freq = policy->cur;
+	unsigned int prevfreq, freqmin, freqmax;
+	unsigned int tl;
+	int index;
+
+	freqmin = 0;
+	freqmax = UINT_MAX;
+
+	do {
+		prevfreq = freq;
+		tl = freq_to_targetload(sg_policy->tunables, freq);
+
+		/*
+		 * Find the lowest frequency where the computed load is less
+		 * than or equal to the target load.
+		 */
+
+		index = cpufreq_frequency_table_target(policy,
+						       loadadjfreq / tl,
+						       CPUFREQ_RELATION_L);
+		freq = policy->freq_table[index].frequency;
+
+		trace_choose_freq(freq, prevfreq, freqmax, freqmin, tl, index);
+
+		if (freq > prevfreq) {
+			/* The previous frequency is too low. */
+			freqmin = prevfreq;
+
+			if (freq >= freqmax) {
+				/*
+				 * Find the highest frequency that is less
+				 * than freqmax.
+				 */
+				index = cpufreq_frequency_table_target(
+					    policy,
+					    freqmax - 1, CPUFREQ_RELATION_H);
+				freq = policy->freq_table[index].frequency;
+
+				if (freq == freqmin) {
+					/*
+					 * The first frequency below freqmax
+					 * has already been found to be too
+					 * low.  freqmax is the lowest speed
+					 * we found that is fast enough.
+					 */
+					freq = freqmax;
+					break;
+				}
+			}
+		} else if (freq < prevfreq) {
+			/* The previous frequency is high enough. */
+			freqmax = prevfreq;
+
+			if (freq <= freqmin) {
+				/*
+				 * Find the lowest frequency that is higher
+				 * than freqmin.
+				 */
+				index = cpufreq_frequency_table_target(
+					    policy,
+					    freqmin + 1, CPUFREQ_RELATION_L);
+				freq = policy->freq_table[index].frequency;
+
+				/*
+				 * If freqmax is the first frequency above
+				 * freqmin then we have already found that
+				 * this speed is fast enough.
+				 */
+				if (freq == freqmax)
+					break;
+			}
+		}
+
+		/* If same frequency chosen as previous then done. */
+	} while (freq != prevfreq);
+
+	return freq;
+}
+#endif /* CONFIG_CPUFREQ_GOV_SCHEDUTIL_TARGET_LOAD */
+
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+__weak unsigned int glk_freq_limit(struct cpufreq_policy *policy,
+		unsigned int *target_freq)
+{
+	return 0;
+}
+
+__weak unsigned long glk_cal_freq(struct cpufreq_policy *policy,
+		unsigned long util, unsigned long max)
+{
+	return 0;
+}
+#endif
+
 #define TARGET_LOAD 80
 /**
  * get_next_freq - Compute a new frequency for a given cpufreq policy.
@@ -310,6 +428,34 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				  unsigned long util, unsigned long max)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
+	unsigned int final_freq;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	unsigned int walt_freq;
+#endif
+#ifdef CONFIG_CPUFREQ_GOV_SCHEDUTIL_TARGET_LOAD
+	unsigned int freq = policy->cpuinfo.max_freq;
+	unsigned int prev_freq = freq;
+	unsigned int prev_laf = prev_freq * util * 100 / max;
+#ifdef CONFIG_CPUFREQ_GOV_SCHEDUTIL_WALT_AWARE
+	struct sugov_cpu *sg_cpu;
+        int def_freq = choose_freq(sg_policy, prev_laf);
+        int next_freq = walt_map_util_freq(util, sg_policy, max, sg_cpu->cpu);
+
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	walt_freq = min(def_freq, next_freq);
+	freq = glk_cal_freq(policy, util, max);
+	if (!freq)
+		freq = glk_freq_limit(policy, &walt_freq);
+	else
+		sg_policy->need_freq_update = true;
+#else
+	freq = min(def_freq, next_freq);
+#endif
+#else
+	freq = choose_freq(sg_policy, prev_laf);
+#endif
+	trace_sugov_next_freq_tl(policy->cpu, util, max, freq, prev_laf, prev_freq);
+#else /* !CONFIG_CPUFREQ_GOV_SCHEDUTIL_TARGET_LOAD */
 	unsigned int freq = arch_scale_freq_invariant() ?
 				policy->cpuinfo.max_freq : policy->cur;
 

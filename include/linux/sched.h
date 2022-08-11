@@ -31,6 +31,9 @@
 #include <linux/task_io_accounting.h>
 #include <linux/rseq.h>
 #include <linux/android_kabi.h>
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#include <linux/pkg_stat.h>
+#endif
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1509,6 +1512,10 @@ struct task_struct {
 
 	/* 095444fad7e3 ("futex: Replace PF_EXITPIDONE with a state") */
 	ANDROID_KABI_USE(2, unsigned int futex_state);
+
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+struct package_runtime_info pkg;
+#endif
 
 	/*
 	 * f9b0c6c556db ("futex: Add mutex around futex exit")
