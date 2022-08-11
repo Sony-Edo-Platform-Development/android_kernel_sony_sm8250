@@ -237,4 +237,6 @@ source "drivers/semc/Kconfig"
 
 source "drivers/voyager/Kconfig"
 
+source "drivers/mihw/Kconfig"
+
 endmenu
