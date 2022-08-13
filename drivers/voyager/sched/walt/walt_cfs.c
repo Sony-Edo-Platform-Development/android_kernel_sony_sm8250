@@ -140,6 +140,9 @@ void walt_find_best_target(struct sched_domain *sd,
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
 	cpumask_t visit_cpus;
+#ifdef CONFIG_MIHW
+	struct root_domain *rd;
+#endif
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
@@ -211,6 +214,13 @@ void walt_find_best_target(struct sched_domain *sd,
 
 			if (fbt_env->skip_cpu == i)
 				continue;
+
+#ifdef CONFIG_MIHW
+			if (sched_boost_top_app() && rd->mid_cap_orig_cpu != -1 &&
+				((i < rd->mid_cap_orig_cpu && MAX_USER_RT_PRIO <= p->prio && p->prio < DEFAULT_PRIO) ||
+				(i >= rd->mid_cap_orig_cpu && p->prio > DEFAULT_PRIO)))
+				break;
+#endif
 
 			if (per_task_boost(cpu_rq(i)->curr) ==
 					TASK_BOOST_STRICT_MAX)
@@ -322,6 +332,22 @@ void walt_find_best_target(struct sched_domain *sd,
 			target_nr_rtg_high_prio = walt_nr_rtg_high_prio(i);
 			target_cpu_cluster = i;
 		}
+
+#ifdef CONFIG_MIGT
+		if (!sysctl_boost_stask_to_big) {
+			if (best_idle_cpu_cluster != -1) {
+				if (game_vip_task(p))
+					break;
+			} else if (target_cpu_cluster != -1) {
+				if (game_vip_task(p))
+					break;
+			}
+		} else {
+			if (game_vip_task(p) &&
+				(best_idle_cpu_cluster != -1 || target_cpu_cluster != -1))
+				break;
+		}
+#endif
 
 		if (best_idle_cpu_cluster != -1)
 			cpumask_set_cpu(best_idle_cpu_cluster, candidates);
@@ -739,6 +765,15 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (!pd)
 		goto fail;
 
+#ifdef CONFIG_MIHW
+	if (sched_boost_top_app() && is_top_app(p) && cpu_online(super_big_cpu) &&
+		!cpu_isolated(super_big_cpu) && cpumask_test_cpu(super_big_cpu, &p->cpus_allowed)) {
+		best_energy_cpu = super_big_cpu;
+		fbt_env.fastpath = SCHED_BIG_TOP;
+		goto done;
+	}
+#endif
+
 	fbt_env.is_rtg = is_rtg;
 	fbt_env.placement_boost = placement_boost;
 	fbt_env.start_cpu = start_cpu;
@@ -765,7 +800,11 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	}
 
 	if (task_placement_boost_enabled(p) || fbt_env.need_idle || boosted ||
+#ifdef CONFIG_MIGT
+	    game_vip_task(p) || is_rtg || __cpu_overutilized(prev_cpu, delta) ||
+#else
 	    is_rtg || __cpu_overutilized(prev_cpu, delta) ||
+#endif
 	    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu)) {
 		best_energy_cpu = cpu;
 		goto unlock;
