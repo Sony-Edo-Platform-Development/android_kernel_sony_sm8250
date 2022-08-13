@@ -734,6 +734,14 @@ static void set_load_weight(struct task_struct *p, bool update_load)
 	}
 }
 
+#ifdef CONFIG_MIGT
+void __weak migt_monitor_hook(int enqueue, int cpu,
+		struct task_struct *p, u64 walltime)
+{
+	/*do nothing*/
+}
+#endif
+
 #ifdef CONFIG_UCLAMP_TASK
 /*
  * Serializes updates of utilization clamp values
@@ -1417,6 +1425,9 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	uclamp_rq_inc(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
 	walt_update_last_enqueue(p);
+#ifdef CONFIG_MGT
+	migt_monitor_hook(1, rq->cpu, p, sched_ktime_clock());
+#endif
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(&p->cpus_allowed)[0]);
 }
 
@@ -1435,6 +1446,9 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 #ifdef CONFIG_SCHED_WALT
 	if (p == rq->ed_task)
 		early_detection_notify(rq, sched_ktime_clock());
+#endif
+#ifdef CONFIG_MIGT
+	migt_monitor_hook(0, rq->cpu, p, sched_ktime_clock());
 #endif
 	trace_sched_enq_deq_task(p, 0, cpumask_bits(&p->cpus_allowed)[0]);
 }
@@ -8824,3 +8838,37 @@ void sched_exit(struct task_struct *p)
 #endif /* CONFIG_SCHED_WALT */
 
 __read_mostly bool sched_predl = 1;
+
+#ifdef CONFIG_MIHW
+inline bool is_critical_task(struct task_struct *p)
+{
+	return is_top_app(p) || is_inherit_top_app(p);
+}
+
+inline bool is_top_app(struct task_struct *p)
+{
+	return p && p->top_app > 0;
+}
+
+inline bool is_inherit_top_app(struct task_struct *p)
+{
+	return p && p->inherit_top_app > 0;
+}
+
+inline void set_inherit_top_app(struct task_struct *p,
+				struct task_struct *from)
+{
+	if (!p || !from)
+		return;
+	if (is_critical_task(p) || from->inherit_top_app >= INHERIT_DEPTH)
+		return;
+	p->inherit_top_app = from->inherit_top_app + 1;
+}
+
+inline void restore_inherit_top_app(struct task_struct *p)
+{
+	if (p && is_inherit_top_app(p)) {
+		p->inherit_top_app = 0;
+	}
+}
+#endif

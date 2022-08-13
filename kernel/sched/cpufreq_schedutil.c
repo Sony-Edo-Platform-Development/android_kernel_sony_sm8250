@@ -470,6 +470,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	sg_policy->cached_raw_freq = freq;
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
+#endif /* CONFIG_CPUFREQ_GOV_SCHEDUTIL_TARGET_LOAD */
 
 extern long
 schedtune_cpu_margin_with(unsigned long util, int cpu, struct task_struct *p);

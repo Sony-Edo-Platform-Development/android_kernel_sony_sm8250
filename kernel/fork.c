@@ -97,6 +97,9 @@
 #include <linux/scs.h>
 #include <linux/simple_lmk.h>
 
+#ifdef CONFIG_MIHW
+#include <linux/cpuset.h>
+#endif
 #include <linux/pgtable.h>
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
@@ -2383,6 +2386,29 @@ long _do_fork(unsigned long clone_flags,
 		get_task_struct(p);
 	}
 
+	if (IS_ENABLED(CONFIG_LRU_GEN) && !(clone_flags & CLONE_VM)) {
+		/* lock the task to synchronize with memcg migration */
+		task_lock(p);
+		lru_gen_add_mm(p->mm);
+		task_unlock(p);
+	}
+
+#ifdef CONFIG_MIHW
+	p->top_app = 0;
+	p->inherit_top_app = 0;
+	p->critical_task = 0;
+
+	if (current->critical_task) {
+		cpuset_cpus_allowed_mi(p);
+	}
+#endif
+
+#ifdef CONFIG_PERF_CRITICAL_RT_TASK
+	p->critical_rt_task = 0;
+#endif
+#ifdef CONFIG_SF_BINDER
+	p->sf_binder_task = 0;
+#endif
 	wake_up_new_task(p);
 
 	/* forking complete and child started to run, tell ptracer */

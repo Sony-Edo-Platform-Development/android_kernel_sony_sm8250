@@ -98,6 +98,10 @@ struct sched_walt_cpu_load {
 	u64 ws;
 };
 
+#ifdef CONFIG_MIHW
+#define MI_BOOST         4
+#endif
+
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;
 
@@ -2877,6 +2881,9 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2
 #define RESTRAINED_BOOST 3
+#ifdef CONFIG_MIHW
+#define MI_BOOST         4
+#endif
 #define FULL_THROTTLE_BOOST_DISABLE -1
 #define CONSERVATIVE_BOOST_DISABLE -2
 #define RESTRAINED_BOOST_DISABLE -3
@@ -3034,6 +3041,9 @@ static inline bool is_full_throttle_boost(void)
 	return sched_boost() == FULL_THROTTLE_BOOST;
 }
 
+#ifdef CONFIG_MIHW
+extern bool sched_boost_top_app(void);
+#endif
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);

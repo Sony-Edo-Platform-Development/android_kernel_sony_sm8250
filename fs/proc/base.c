@@ -2709,6 +2709,343 @@ static const struct file_operations proc_pid_set_timerslack_ns_operations = {
 	.release	= single_release,
 };
 
+#ifdef CONFIG_PERF_CRITICAL_RT_TASK
+static int critical_rt_task_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	int err = 0;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%u\n", p->critical_rt_task);
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return err;
+}
+
+static int critical_rt_task_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, critical_rt_task_show, inode);
+}
+
+static ssize_t critical_rt_task_write(struct file *file, const char __user *buf,
+                                        size_t count, loff_t *offset)
+{
+	struct inode *inode = file_inode(file);
+	struct task_struct *p;
+	unsigned int critical_rt_task;
+	int err;
+
+	err = kstrtouint_from_user(buf, count, 10, &critical_rt_task);
+	if (err < 0)
+		return err;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
+
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	p->critical_rt_task = critical_rt_task;
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return count;
+}
+
+static const struct file_operations proc_pid_set_critical_rt_task_operations = {
+	.open		= critical_rt_task_open,
+	.read		= seq_read,
+	.write		= critical_rt_task_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+#ifdef CONFIG_SF_BINDER
+static int sf_binder_task_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	int err = 0;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%u\n", p->sf_binder_task);
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return err;
+}
+
+static int sf_binder_task_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, sf_binder_task_show, inode);
+}
+
+static ssize_t sf_binder_task_write(struct file *file, const char __user *buf,
+                                        size_t count, loff_t *offset)
+{
+	struct inode *inode = file_inode(file);
+	struct task_struct *p;
+	unsigned int sf_binder_task;
+	int err;
+
+	err = kstrtouint_from_user(buf, count, 10, &sf_binder_task);
+	if (err < 0)
+		return err;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
+
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	p->sf_binder_task = sf_binder_task;
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return count;
+}
+
+static const struct file_operations proc_pid_set_sf_binder_task_operations = {
+	.open		= sf_binder_task_open,
+	.read		= seq_read,
+	.write		= sf_binder_task_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
+#ifdef CONFIG_MIHW
+static int critical_task_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	int err = 0;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%u\n", p->critical_task);
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return err;
+}
+
+static int critical_task_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, critical_task_show, inode);
+}
+
+static ssize_t critical_task_write(struct file *file, const char __user *buf,
+                                        size_t count, loff_t *offset)
+{
+	struct inode *inode = file_inode(file);
+	struct task_struct *p;
+	unsigned int critical_task;
+	int err;
+
+	err = kstrtouint_from_user(buf, count, 10, &critical_task);
+	if (err < 0)
+		return err;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
+
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	p->critical_task = critical_task;
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return count;
+}
+
+static const struct file_operations proc_pid_set_critical_task_operations = {
+	.open		= critical_task_open,
+	.read		= seq_read,
+	.write		= critical_task_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int top_app_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	int err = 0;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%u\n", p->top_app);
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return err;
+}
+
+static int top_app_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, top_app_show, inode);
+}
+
+static ssize_t top_app_write(struct file *file, const char __user *buf,
+                                        size_t count, loff_t *offset)
+{
+	struct inode *inode = file_inode(file);
+	struct task_struct *p;
+	unsigned int top_app;
+	int err;
+
+	err = kstrtouint_from_user(buf, count, 10, &top_app);
+	if (err < 0)
+		return err;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
+
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	p->top_app = top_app;
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return count;
+}
+
+static const struct file_operations proc_pid_set_top_app_operations = {
+	.open		= top_app_open,
+	.read		= seq_read,
+	.write		= top_app_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 static struct dentry *proc_pident_instantiate(struct dentry *dentry,
 	struct task_struct *task, const void *ptr)
 {

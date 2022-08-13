@@ -63,6 +63,10 @@ walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
 
 #endif
 
+#ifdef CONFIG_MIHW
+unsigned int super_big_cpu = 7;
+#endif
+
 /*
  * Targeted preemption latency for CPU-bound tasks:
  *
@@ -88,6 +92,9 @@ unsigned int sysctl_sched_sync_hint_enable = 1;
  * Enable/disable using cstate knowledge in idle sibling selection
  */
 unsigned int sysctl_sched_cstate_aware = 1;
+#ifdef CONFIG_MIGT
+unsigned int sysctl_boost_stask_to_big = 1;
+#endif
 
 /*
  * The initial- and re-scaling of tunables is configurable
@@ -6932,6 +6939,18 @@ static int get_start_cpu(struct task_struct *p)
 		return start_cpu;
 	}
 
+#ifdef CONFIG_MIGT
+	if (game_super_task(p)) {
+		if(sysctl_boost_stask_to_big)
+			return rd->max_cap_orig_cpu;
+		return rd->mid_cap_orig_cpu;
+	}
+
+	if (game_vip_task(p)) {
+		return rd->mid_cap_orig_cpu;
+	}
+#endif
+
 	if (start_cpu == -1 || start_cpu == rd->max_cap_orig_cpu)
 		return start_cpu;
 
@@ -6977,6 +6996,12 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int isolated_candidate = -1;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
+#ifdef CONFIG_MIHW
+	struct root_domain *rd;
+
+	if (!prefer_idle)
+		prefer_idle = !!game_vip_task(p);
+#endif
 
 	/*
 	 * In most cases, target_capacity tracks capacity_orig of the most
@@ -7048,6 +7073,12 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			if (fbt_env->skip_cpu == i)
 				continue;
 
+#ifdef CONFIG_MIHW
+			if (sched_boost_top_app() && rd->mid_cap_orig_cpu != -1 &&
+				((i < rd->mid_cap_orig_cpu && MAX_USER_RT_PRIO <= p->prio && p->prio < DEFAULT_PRIO) ||
+				(i >= rd->mid_cap_orig_cpu && p->prio > DEFAULT_PRIO)))
+				break;
+#endif
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -7339,6 +7370,22 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * iterate lower capacity CPUs unless the task can't be
 		 * accommodated in the higher capacity CPUs.
 		 */
+#ifdef CONFIG_MIGT
+		if (!sysctl_boost_stask_to_big) {
+			if (best_idle_cpu != -1) {
+				if (game_vip_task(p))
+					break;
+			} else if (target_cpu != -1 || best_active_cpu != -1) {
+				if (game_vip_task(p))
+					break;
+			}
+		} else {
+			if (game_vip_task(p) &&
+				(best_idle_cpu != -1 || target_cpu != -1 || best_active_cpu != -1))
+				break;
+		}
+#endif
+
 		if ((prefer_idle && best_idle_cpu != -1) ||
 		    (boosted && (best_idle_cpu != -1 || target_cpu != -1 ||
 		     (fbt_env->strict_max && most_spare_cap_cpu != -1)))) {
@@ -7804,6 +7851,15 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	if (!pd)
 		goto fail;
 
+#ifdef CONFIG_MIHW
+	if (sched_boost_top_app() && is_top_app(p) && cpu_online(super_big_cpu) &&
+		!cpu_isolated(super_big_cpu) && cpumask_test_cpu(super_big_cpu, &p->cpus_allowed)) {
+		best_energy_cpu = super_big_cpu;
+		fbt_env.fastpath = SCHED_BIG_TOP;
+		goto done;
+	}
+#endif
+
 	/*
 	 * Energy-aware wake-up happens on the lowest sched_domain starting
 	 * from sd_asym_cpucapacity spanning over this_cpu and prev_cpu.
@@ -7870,7 +7926,11 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		delta = task_util(p);
 #endif
 	if (task_placement_boost_enabled(p) || fbt_env.need_idle || boosted ||
+#ifdef CONFIG_MIGT
+	    game_vip_task(p) || is_rtg || __cpu_overutilized(prev_cpu, delta) ||
+#else
 	    is_rtg || __cpu_overutilized(prev_cpu, delta) ||
+#endif
 	    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu)) {
 		best_energy_cpu = cpu;
 		goto unlock;
@@ -8970,6 +9030,12 @@ redo:
 			env->flags |= LBF_NEED_BREAK;
 			break;
 		}
+
+#ifdef CONFIG_MIHW
+		if (sched_boost_top_app() && super_big_cpu == env->src_cpu && is_top_app(p)) {
+			goto next;
+		}
+#endif
 
 		if (!can_migrate_task(p, env))
 			goto next;
