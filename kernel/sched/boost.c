@@ -60,17 +60,12 @@ static void set_boost_policy(int type)
 
 static bool verify_boost_params(int type)
 {
-#ifdef CONFIG_MIHW
 	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
-#else
-	return type >= RESTRAINED_BOOST_DISABLE && type <= MI_BOOST;
-#endif
 }
 
 static void sched_no_boost_nop(void)
 {
 }
-
 
 #ifdef CONFIG_MIHW
 static bool verify_boost_top_app_params(int type)
