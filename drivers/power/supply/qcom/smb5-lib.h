@@ -105,6 +105,9 @@ enum print_reason {
 #define SOMC_DC_PLUGIN_VOTER		"SOMC_DC_PLUGIN_VOTER"
 #define SOMC_LIM_BPP_VOTER		"SOMC_LIM_BPP_VOTER"
 #endif
+#ifdef CONFIG_PD_VERIFY
+#define PD_VERIFED_VOTER		"PD_VERIFED_VOTER"
+#endif
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -129,6 +132,10 @@ enum print_reason {
 #define ROLE_REVERSAL_DELAY_MS		500
 #if defined(CONFIG_SOMC_CHARGER_EXTENSION)
 #define OCP_CURRENT_UA			1000000
+#endif
+#ifdef CONFIG_PD_VERIFY
+#define PD_UNVERIFED_CURRENT		3000000
+#define PD_VERIFED_CURRENT			6000000
 #endif
 
 enum smb_mode {
@@ -564,6 +571,9 @@ struct smb_charger {
 	int			voltage_min_uv;
 	int			voltage_max_uv;
 	int			pd_active;
+#ifdef CONFIG_PD_VERIFY
+	int			pd_verifed;
+#endif
 	bool			pd_hard_reset;
 	bool			pr_lock_in_progress;
 	bool			pr_swap_in_progress;
