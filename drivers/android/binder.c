@@ -708,7 +708,7 @@ static void binder_transaction_priority(struct binder_thread *thread,
 	if (t->set_priority_called)
 		return;
 	t->set_priority_called = true;
-	if (!node->inherit_rt && is_rt_policy(desired_prio.sched_policy)) {
+	if (!node->inherit_rt && is_rt_policy(desired.sched_policy)) {
 		desired.prio = NICE_TO_PRIO(0);
 		desired.sched_policy = SCHED_NORMAL;
 	}
@@ -2621,7 +2621,7 @@ static void binder_transaction(struct binder_proc *proc,
 			}
 			binder_proc_unlock(proc);
 		} else {
-			rt_mutex_lock(&context->context_mgr_node_lock);
+			mutex_lock(&context->context_mgr_node_lock);
 			target_node = context->binder_context_mgr_node;
 			if (target_node)
 				target_node = binder_get_node_refs_for_txn(
@@ -2629,7 +2629,7 @@ static void binder_transaction(struct binder_proc *proc,
 						&return_error);
 			else
 				return_error = BR_DEAD_REPLY;
-			rt_mutex_unlock(&context->context_mgr_node_lock);
+			mutex_unlock(&context->context_mgr_node_lock);
 			if (target_node && target_proc->pid == proc->pid) {
 				binder_user_error("%d:%d got transaction to context manager from process owning it\n",
 						  proc->pid, thread->pid);
@@ -3327,7 +3327,7 @@ static int binder_thread_write(struct binder_proc *proc,
 			ret = -1;
 			if (increment && !target) {
 				struct binder_node *ctx_mgr_node;
-				rt_mutex_lock(&context->context_mgr_node_lock);
+				mutex_lock(&context->context_mgr_node_lock);
 				ctx_mgr_node = context->binder_context_mgr_node;
 				if (ctx_mgr_node) {
 					if (ctx_mgr_node->proc == proc) {
@@ -4544,7 +4544,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp,
 	binder_node_unlock(new_node);
 	binder_put_node(new_node);
 out:
-	rt_mutex_unlock(&context->context_mgr_node_lock);
+	mutex_unlock(&context->context_mgr_node_lock);
 	return ret;
 }
 static int binder_ioctl_get_node_info_for_ref(struct binder_proc *proc,
@@ -4560,10 +4560,10 @@ static int binder_ioctl_get_node_info_for_ref(struct binder_proc *proc,
 		return -EINVAL;
 	}
 	/* This ioctl may only be used by the context manager */
-	rt_mutex_lock(&context->context_mgr_node_lock);
+	mutex_lock(&context->context_mgr_node_lock);
 	if (!context->binder_context_mgr_node ||
 		context->binder_context_mgr_node->proc != proc) {
-		rt_mutex_unlock(&context->context_mgr_node_lock);
+		mutex_unlock(&context->context_mgr_node_lock);
 		return -EPERM;
 	}
 	mutex_unlock(&context->context_mgr_node_lock);
@@ -5113,7 +5113,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 			     __func__, proc->pid);
 		context->binder_context_mgr_node = NULL;
 	}
-	rt_mutex_unlock(&context->context_mgr_node_lock);
+	mutex_unlock(&context->context_mgr_node_lock);
 	binder_inner_proc_lock(proc);
 	/*
 	 * Make sure proc stays alive after we
