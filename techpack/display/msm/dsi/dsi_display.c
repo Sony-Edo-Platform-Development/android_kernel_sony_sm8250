@@ -253,7 +253,9 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 	dsi_panel_driver_panel_update_area(panel, (u32)bl_temp);
 #endif  /* CONFIG_DRM_SDE_SPECIFIC_PANEL */
 #ifdef CONFIG_DRM_SDE_EXPO
-	bl_temp = expo_map_dim_level((u32)bl_temp, dsi_display);
+	if(panel->dimlayer_exposure) {
+		bl_temp = expo_map_dim_level((u32)bl_temp, dsi_display);
+	}
 #endif
 
 	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
@@ -5357,6 +5359,72 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_DRM_SDE_EXPO
+static ssize_t sysfs_dimlayer_exposure_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display;
+	struct dsi_panel *panel;
+	bool status;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	panel = display->panel;
+
+	mutex_lock(&panel->panel_lock);
+	status = panel->dimlayer_exposure;
+	mutex_unlock(&panel->panel_lock);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", status);
+}
+
+static ssize_t sysfs_dimlayer_exposure_write(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct dsi_display *display;
+	struct dsi_panel *panel;
+	struct drm_connector *connector;
+	bool status;
+	int rc = 0;
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return -EINVAL;
+	}
+
+	rc = kstrtobool(buf, &status);
+	if (rc) {
+		pr_err("%s: kstrtobool failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	panel = display->panel;
+
+	panel->dimlayer_exposure = status;
+	dsi_display_set_backlight(connector, display, panel->bl_config.bl_level);
+
+	return count;
+}
+
+static DEVICE_ATTR(dimlayer_exposure, 0644,
+			sysfs_dimlayer_exposure_read,
+			sysfs_dimlayer_exposure_write);
+
+static struct attribute *display_expo_fs_attrs[] = {
+	&dev_attr_dimlayer_exposure.attr,
+	NULL,
+};
+static struct attribute_group display_expo_fs_attrs_group = {
+	.attrs = display_expo_fs_attrs,
+};
+
+#endif
+
 /**
  * dsi_display_bind - bind dsi device with controlling device
  * @dev:        Pointer to base of platform device
@@ -5427,6 +5495,12 @@ static int dsi_display_bind(struct device *dev,
 
 	atomic_set(&display->clkrate_change_pending, 0);
 	display->cached_clk_rate = 0;
+
+#ifdef CONFIG_DRM_SDE_EXPO
+	rc = sysfs_create_group(&(display->pdev->dev.kobj), &display_expo_fs_attrs_group);
+	if (rc)
+		pr_err("expo sysfs group creation failed, rc=%d\n", rc);
+#endif
 
 	memset(&info, 0x0, sizeof(info));
 

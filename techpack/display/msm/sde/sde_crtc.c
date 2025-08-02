@@ -2597,8 +2597,6 @@ static int sde_crtc_config_exposure_dim_layer(struct drm_crtc_state *crtc_state,
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	int alpha = sde_crtc_get_property(cstate, CRTC_PROP_DIM_LAYER_EXPO);
-	struct dsi_display *dsi_display = get_main_display();
-	struct dsi_panel *panel = dsi_display->panel;
 
 	kms = _sde_crtc_get_kms(crtc_state->crtc);
 	if (!kms || !kms->catalog) {
@@ -2609,7 +2607,6 @@ static int sde_crtc_config_exposure_dim_layer(struct drm_crtc_state *crtc_state,
 		pr_err("failed to get available dim layer for exposure\n");
 		return -EINVAL;
 	}
-
 
 	if ((stage + SDE_STAGE_0) >= kms->catalog->mixer[0].sblk->maxblendstages) {
 		return -EINVAL;
@@ -4761,6 +4758,13 @@ static int sde_crtc_exposure_atomic_check(struct sde_crtc_state *cstate,
 		struct plane_state *pstates, int cnt)
 {
 	int i, zpos = 0;
+	struct dsi_display *dsi_display = get_main_display();
+	struct dsi_panel *panel = dsi_display->panel;
+
+	if (!panel->dimlayer_exposure) {
+		cstate->exposure_dim_layer = NULL;
+		return 0;
+	}
 
 	for (i = 0; i < cnt; i++) {
 		if (pstates[i].stage > zpos)

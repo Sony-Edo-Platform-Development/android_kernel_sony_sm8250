@@ -239,6 +239,10 @@ struct dsi_panel {
 #ifdef CONFIG_DRM_SDE_SPECIFIC_PANEL
 	struct panel_specific_pdata *spec_pdata;
 #endif /* CONFIG_DRM_SDE_SPECIFIC_PANEL */
+
+#ifdef CONFIG_DRM_SDE_EXPO
+	bool dimlayer_exposure;
+#endif
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
