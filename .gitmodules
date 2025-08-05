@@ -4,7 +4,3 @@
 [submodule "scripts/ufdt/libufdt"]
 	path = scripts/ufdt/libufdt
 	url = https://android.googlesource.com/platform/system/libufdt
-[submodule "KernelSU"]
-	path = KernelSU
-	url = https://github.com/backslashxx/KernelSU
-	branch = magic

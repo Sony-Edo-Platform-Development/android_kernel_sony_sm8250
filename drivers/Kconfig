@@ -239,5 +239,4 @@ source "drivers/voyager/Kconfig"
 
 source "drivers/mihw/Kconfig"
 
-source "drivers/kernelsu/Kconfig"
 endmenu
